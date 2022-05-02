@@ -14,9 +14,16 @@ defmodule HumiCareer do
 
     {:ok, response} = HTTPoison.get(url,headers, [])
 
-    # result = response.body() |> JSON.decode()
+    {:ok, results} = response.body() |> JSON.decode()
 
-    File.write("../postins.json",response.body(), [:binary])
+    for posting <- results["data"] do
+      IO.inspect(posting["id"])
+      IO.inspect(posting["categories"]["team"])
+      IO.inspect(posting["text"])
+      # IO.inspect(posting["content"]["descriptionHtml"])
+    end
+
+    # File.write("../postings.json",response.body(), [:binary])
 
   end
 end
