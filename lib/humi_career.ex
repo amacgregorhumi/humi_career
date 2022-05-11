@@ -17,49 +17,7 @@ defmodule HumiCareer do
 
     lever_postings
     |> Enum.each(&process_posting(&1, webflow_ids))
-
-
-
-    # for wposting <- web_flow_postings["items"] do
-    #   Enum.filter(lever_postings, fn(p) -> p.lever_uuid == wposting["lever-uuid"] end)
-    #   |> Enum.each(&update_item/1)
-    # end
-
-    ## Get Ids that are unique
-
-
-    # for wposting <- web_flow_postings["items"] do
-    #   Enum.filter(lever_postings, fn(p) -> p.lever_uuid != wposting["lever-uuid"] end)
-    #   |> Enum.uniq_by(fn(p))
-    #   |> Enum.each(&create_item/1)
-    # end
-
-    # to_create =
-    # lever_postings
-    # |> &Enum.map.(webflow_ids, &1.lever_uuid).()
-
-
-    # lever_postings
-    # |> IO.inspect()
-
-    # lever_postings
-    # |> Enum.each
-    # |> Enum.filter(fn(p) -> p.lever_uuid != ["lever-uuid"] end)
-    # |> Enum.uniq
-    # |> Enum.each(&create_item/1)
   end
-
-  # "fields": {
-  #   "name": "Exciting blog post title",
-  #   "slug": "exciting-post",
-  #   "_archived": false,
-  #   "_draft": false,
-  #   "color": "#a98080",
-  #   "author": "580e640c8c9a982ac9b8b778",
-  #   "post-body": "<p>Blog post contents...</p>",
-  #   "post-summary": "Summary of exciting blog post",
-  #   "main-image": "580e63fe8c9a982ac9b8b749"
-  # }
 
   def update_item(posting) do
     IO.puts("To be Updated:")
@@ -115,13 +73,10 @@ defmodule HumiCareer do
     teams = retrieve_teams()
     team = Enum.find(teams["items"], fn (t) -> t["name"] == posting[:team] end)
 
-
-
-
     body = Poison.encode!(
       %{ "fields" => %{
         "_archived" => false,
-        "_draft" => true,
+        "_draft" => false,
         "name" => posting[:title],
         "lever-uuid" => posting[:lever_uuid],
         "slug" => posting[:slug],
@@ -184,7 +139,11 @@ defmodule HumiCareer do
     {:ok, response} = HTTPoison.get(url,headers, [])
     {:ok, results} = response.body() |> JSON.decode()
 
-    postings = results["data"] |> Enum.map(&parse_posting/1)
+    postings =
+      results["data"]
+      |> Enum.filter(fn (p) -> p["distributionChannels"] != nil end)
+      |> Enum.filter(fn (p) -> Enum.member?(p["distributionChannels"], "public") end)
+      |> Enum.map(&parse_posting/1)
   end
 
   defp parse_posting(posting) do
@@ -196,7 +155,7 @@ defmodule HumiCareer do
         team: posting["categories"]["team"],
         commitment: posting["categories"]["commitment"],
         location: posting["categories"]["location"],
-        description_html: generate_description(posting["content"]) |> hd(),
+        description_html: generate_description(posting["content"]),
         closing_html: posting["content"]["closingHtml"],
         apply_url: posting["urls"]["apply"],
       }
@@ -205,8 +164,10 @@ defmodule HumiCareer do
   defp generate_description(content) do
     description = content["descriptionHtml"]
 
-    for list <- content["lists"] do
-      description = description <> "<p>" <> list["text"] <> "</p><ul>" <> list["content"] <> "</ul>"
+    onboarding_lists = for list <- content["lists"] do
+       "<p style='font-weight:bold'>" <> list["text"] <> "</p><ul>" <> list["content"] <> "</ul>"
     end
+
+    Enum.join([description, onboarding_lists], " ")
   end
 end
